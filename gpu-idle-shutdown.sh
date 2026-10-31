@@ -9,7 +9,8 @@
 # Jeśli OBA warunki są spełnione — "idle". Po IDLE_LIMIT kolejnych idle
 # wyłącza system (poweroff). Skrypt działa jako root, więc hasło sudo
 # nie jest potrzebne. Zero obsługi po instalacji, startuje automatycznie
-# po restarcie (systemd timer enabled).
+# po restarcie (systemd timer enabled). PO KAŻDYM RESTARCIE licznik startuje
+# od zera (marker boot_id) — maszyna nie wyłączy się sama minutę po starcie.
 #
 set -euo pipefail
 
@@ -19,6 +20,12 @@ GPU_UTIL_MAX="${GPU_UTIL_MAX:-1}"      # utilization.gpu <= próg [%] uznajemy z
 NVIDIA_SMI="${NVIDIA_SMI:-nvidia-smi}" # ścieżka do nvidia-smi
 STATE_FILE="${STATE_FILE:-/var/lib/gpu-idle-shutdown/state}"  # licznik idle checków
 DRY_RUN="${DRY_RUN:-0}"                # 1 = tylko loguje zamiast wyłączać (bezpieczny test)
+
+STATE_DIR="$(dirname "$STATE_FILE")"
+BOOT_ID_FILE="${BOOT_ID_FILE:-$STATE_DIR/boot_id}"
+# boot_id jądra — unikalny dla KAŻDEgo rozruchu; nadpisanie przez env tylko do testów
+BOOT_ID="${BOOT_ID:-$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || printf 'unknown')}"
+mkdir -p "$STATE_DIR"
 
 ts() { date '+%F %T'; }
 
@@ -51,9 +58,17 @@ if [ -n "${apps_csv//[[:space:]]/}" ]; then
 fi
 
 # ================== 3. Licznik "idle z rzędu" ==============================================
-mkdir -p "$(dirname "$STATE_FILE")"
 counter="$(cat "$STATE_FILE" 2>/dev/null || printf '0')"
 case "$counter" in ''|*[!0-9]*) counter=0 ;; esac
+
+# Restart systemu (boot_id jądra inny niż przy ostatnim teście) => licznik startuje OD ZERA.
+# Bez tego plik stanu zapisany przed shutdownem (np. 30) spowodowałby kolejne
+# wyłączenie maszyny już ~1 minutę po restarcie (pętla boot -> poweroff).
+if [ -r "$BOOT_ID_FILE" ] && [ "$(cat "$BOOT_ID_FILE" 2>/dev/null)" != "$BOOT_ID" ]; then
+  echo "[$(ts)] NOWY BOOT — licznik zresetowany do 0 (poprzedni stan: $counter)"
+  counter=0
+fi
+printf '%s\n' "$BOOT_ID" > "$BOOT_ID_FILE"
 
 if [ "$gpu_seen" -eq 0 ]; then
   # nie udało się odczytać utilization (błąd drivera itp.) — nie wyłączamy, licznik->0

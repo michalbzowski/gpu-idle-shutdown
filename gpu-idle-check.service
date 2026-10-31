@@ -4,5 +4,6 @@ Documentation=file:/usr/local/bin/gpu-idle-shutdown.sh
 
 [Service]
 Type=oneshot
+TimeoutStartSec=30
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/usr/local/bin/gpu-idle-shutdown.sh

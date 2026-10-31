@@ -7,7 +7,7 @@ BIN="$DIR/fakebin"
 STATE="$DIR/statefile"
 OUT="/tmp/gidis_out.$$"
 
-rm -rf "$BIN" "$STATE"; mkdir -p "$BIN"
+rm -rf "$BIN" "$STATE" "$DIR/boot_id"; mkdir -p "$BIN"
 install -m 0755 "$DIR/fake_nvidia_smi.sh" "$BIN/nvidia-smi"
 
 # stałe środowisko testowe (eksportowane => widoczne dla subprocessów)
@@ -54,5 +54,19 @@ run idle
 
 echo "== H. multi-GPU: jedna zajęta karta => całość aktywna, licznik->0 =="
 run busy-util
+
+echo "== I. restart systemu (zmiana boot_id) => licznik OD ZERA, brak natychmiastowego poweroff =="
+rm -f "$STATE" "$DIR/boot_id"
+export BOOT_ID=BOOT-PIERWSZY
+run idle                       # oczekiwane: 1/5 (nowy plik boot_id założony)
+printf '30\n' > "$STATE"       # symulujemy stan tuż przez wyłączeniem sprzed shutdownu
+export BOOT_ID=BOOT-DRUGI      # symulujemy ponowny rozruch maszyny
+run idle
+if grep -q 'NOWY BOOT' "$OUT" && [ "$(cat "$STATE")" = "1" ]; then
+  echo "  => OK: nowy boot zresetował licznik 30 -> 1/5 (zamiast 31/5 i poweroff)"
+else
+  echo "  => FAIL: brak resetu przy zmianie boot_id"
+fi
+unset BOOT_ID
 
 echo; echo "Koniec testów."

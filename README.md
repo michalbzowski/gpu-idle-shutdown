@@ -20,6 +20,16 @@ W pozostałych przypadkach zalicza jedno "idle". Po `IDLE_LIMIT` kolejnych idle
 (30 = 30 minut) uruchamia `systemctl poweroff`. Stan nieznany (brak drivera,
 błąd odczytu) — bezpiecznie: licznik restart do 0 i żadne wyłączenie.
 
+## Po restarcie komputera
+
+Licznik idle jest zapisywany na dysku (`/var/lib/gpu-idle-shutdown/state`), więc
+przetrwałby restart i wyłączenie komputera. Aby nie było pętli
+"reboot → minuta → znowu poweroff" (stan 30 odziedziczony po poprzedniej sesji),
+skrypt przechowuje dodatkowo znacznik `boot_id` jądra. Rozruch zmienia `boot_id` —
+przy pierwszym teście po starcie licznik jest **resetowany do zera** i maszyna
+potrzebuje pełnych 30 kolejnych minut idle, zanim się wyłączy. W tej samej
+sesji (bez restartu) licznik nie resetuje się nigdy, dopóki GPU jest idle.
+
 ## Instalacja (jednorazowo, wymaga sudo tylko raz)
 
 ```bash

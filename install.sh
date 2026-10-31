@@ -32,8 +32,8 @@ case "$cmd" in
     systemctl disable --now gpu-idle-check.timer || true
     rm -f /etc/systemd/system/gpu-idle-check.service \
           /etc/systemd/system/gpu-idle-check.timer \
-          /usr/local/bin/gpu-idle-shutdown.sh \
-          /var/lib/gpu-idle-shutdown/state
+          /usr/local/bin/gpu-idle-shutdown.sh
+    rm -rf /var/lib/gpu-idle-shutdown
     systemctl daemon-reload
     echo "OK — odinstalowano."
     ;;
